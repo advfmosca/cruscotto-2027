@@ -35,6 +35,19 @@ $("#form-password").addEventListener("submit", async (e) => {
 });
 window.addEventListener("hashchange", () => DATI && disegna());
 
+// Senza password (scelta di Francesco, 15/11/2026): se c'è data.json si apre subito; altrimenti resta la password.
+(async () => {
+  try {
+    const r = await fetch("data.json", { cache: "no-store" });
+    if (!r.ok) throw new Error();
+    DATI = await r.json();
+    $("#contenuto").hidden = false;
+    disegna();
+  } catch {
+    $("#blocco").hidden = false;
+  }
+})();
+
 function disegna() {
   const nome = decodeURIComponent((location.hash.match(/^#s=(.+)$/) || [])[1] || "");
   if (nome && DATI.strutture[nome]) scheda(nome); else panoramica();
