@@ -7,6 +7,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const migliaia = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");  // "1.811" anche a 4 cifre
 const euro = (x) => (x == null ? "—" : migliaia(x) + " €");
 const perc = (x) => (x == null ? "—" : x.toLocaleString("it-IT", { maximumFractionDigits: 1 }) + "%");
+const dataIt = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : "");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const somma = (o) => (o ? Object.values(o).reduce((a, b) => a + (b || 0), 0) : 0);
 let DATI = null;
@@ -56,7 +57,8 @@ function panoramica() {
   const approvato = tot("annuo_approvato"), speso = tot("speso");
   r.sort((a, b) => ORDINE_SEMAFORO[a[1].semaforo] - ORDINE_SEMAFORO[b[1].semaforo] || a[0].localeCompare(b[0]));
   const righe = r.map(([n, x]) => `<tr class="riga" data-nome="${esc(n)}" tabindex="0">
-      <td><button class="nome-struttura" data-nome="${esc(n)}">${esc(n)}</button></td>
+      <td><button class="nome-struttura" data-nome="${esc(n)}">${esc(n)}</button>
+        <span class="pill ${x.confermato_il ? "ok" : ""}">${x.confermato_il ? "confermato " + dataIt(x.confermato_il) : "da confermare"}</span></td>
       <td data-etichetta="Stato"><span class="semaforo ${x.semaforo}">${ETICHETTA_SEMAFORO[x.semaforo]}</span></td>
       <td class="dx num" data-etichetta="Speso / budget"><div class="cella-speso">${euro(x.speso)} <span class="etichetta-na">/ ${euro(x.annuo_approvato)}</span>
         <div class="barra" aria-hidden="true"><i style="--w:${Math.min(x.perc_speso, 100)}%"></i></div></div></td>
@@ -75,13 +77,24 @@ function panoramica() {
     <table class="roster"><thead><tr><th>Struttura</th><th>Stato</th><th class="dx">Speso / budget</th><th class="dx">% speso · residuo</th>
     <th class="dx">Scarto sul piano</th><th class="dx">Proiezione dic.</th><th class="dx">Canali non attivi</th></tr></thead>
     <tbody>${righe}</tbody></table>
-    <p class="vuoto">Stato: scarto tra speso e piano spendibile dei mesi chiusi · in linea entro ±10%, da guardare fino a ±25%, oltre fuori piano. Un mese conta solo quando la spesa di tutti i canali è stata letta per intero.</p></section>` + nonAttribuito();
+    <p class="vuoto">Stato: scarto tra speso e piano spendibile dei mesi chiusi · in linea entro ±10%, da guardare fino a ±25%, oltre fuori piano. Un mese conta solo quando la spesa di tutti i canali è stata letta per intero.</p></section>` + ultimeAttivita() + nonAttribuito();
   requestAnimationFrame(() => document.querySelectorAll(".barra i").forEach((i) => (i.style.width = i.style.getPropertyValue("--w"))));
   document.querySelectorAll("tr.riga").forEach((tr) => {
     const vai = () => (location.hash = "s=" + encodeURIComponent(tr.dataset.nome));
     tr.addEventListener("click", vai);
     tr.addEventListener("keydown", (e) => e.key === "Enter" && vai());
   });
+}
+
+function vociAttivita(voci, conStruttura) {
+  return voci.map((a) => `<li><span class="pill">${esc(a.tipo)}</span> ${conStruttura ? `<b>${esc(a.struttura)}</b> · ` : ""}${esc(a.descrizione)}
+    <small>${dataIt(a.data)}/${esc(a.data.slice(0, 4))} · ${esc(a.piattaforma)}</small></li>`);
+}
+
+function ultimeAttivita() {
+  const v = DATI.ultime_attivita || [];
+  if (!v.length) return "";
+  return `<section class="card"><h2>Ultime attività</h2><ul class="elenco">${vociAttivita(v, true).join("")}</ul></section>`;
 }
 
 function nonAttribuito() {
@@ -108,7 +121,7 @@ function scheda(nome) {
   const target = t ? `<p class="vuoto">${esc(t.obiettivo)} · età ${esc(t.eta)} · ${esc(t.target)}${t.interessi ? " · " + esc(t.interessi) : ""}</p>` : `<p class="vuoto">Nessun target nel piano.</p>`;
   $("#contenuto").innerHTML = `<button class="indietro" onclick="location.hash=''">← Tutte le strutture</button>` + testata(nome) + kpi([
     ["Stato", `<span class="semaforo ${r.semaforo}">${ETICHETTA_SEMAFORO[r.semaforo]}</span>`, r.scarto_pct == null ? "" : `scarto ${r.scarto_pct > 0 ? "+" : ""}${perc(r.scarto_pct)}`],
-    ["Budget approvato", euro(r.annuo_approvato), `livello ${esc(s.livello)}`],
+    ["Budget approvato", euro(r.annuo_approvato), r.confermato_il ? `confermato il ${dataIt(r.confermato_il)}/${r.confermato_il.slice(0, 4)}` : "proposta, da confermare"],
     ["Speso finora", euro(r.speso), `${perc(r.perc_speso)} speso · ${perc(r.perc_residuo)} residuo`],
     ["Proiezione a dicembre", euro(r.proiezione)],
     ["Persi per cause tecniche", euro(r.euro_persi_tecnici)],
@@ -122,7 +135,8 @@ function scheda(nome) {
         ${graficoCumulato(s.mesi)}</section>
     </div>
     <div class="griglia-2">
-      <section class="card"><h2>Diario</h2>${lista(diario, "Nessun problema annotato.")}</section>
+      <section class="card"><h2>Attività</h2>${lista(vociAttivita(s.attivita || [], false), "Nessuna attività registrata.")}
+        <h3 style="margin-top:16px">Diario dei problemi</h3>${lista(diario, "Nessun problema annotato.")}</section>
       <section class="card"><h2>Canali previsti non attivi</h2>${lista(na, "Nessuno: tutti i canali previsti sono attivi.")}
         <h3 style="margin-top:16px">PED del mese</h3>${lista(ped, "Nessun PED del mese passato dalla task.")}
         <h3 style="margin-top:16px">Account</h3>${account}<h3 style="margin-top:16px">Target</h3>${target}</section>
