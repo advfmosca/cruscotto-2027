@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Cruscotto 2027</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+  <section id="blocco" class="blocco" aria-labelledby="titolo-blocco">
+    <div class="blocco-card">
+      <p class="sopratitolo">2027</p>
+      <h1 id="titolo-blocco">Cruscotto</h1>
+      <form id="form-password" autocomplete="off">
+        <label for="password">Password</label>
+        <input id="password" type="password" required autocomplete="current-password">
+        <button type="submit" id="apri">Apri</button>
+        <p id="errore-password" class="errore" role="alert" hidden></p>
+      </form>
+    </div>
+  </section>
+  <section id="contenuto" hidden></section>
+</main>
+<div id="tooltip" class="tooltip" role="status" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
